@@ -1,5 +1,6 @@
 import { Request, Response } from 'express'
 import { getCustomRepository } from 'typeorm'
+import { AppError } from '../errors/AppError'
 import { SurveryRepository } from '../repositories/SurveryRepository'
 
 class SurveryController {
@@ -11,9 +12,7 @@ class SurveryController {
     const surveryAlreadyExists = await surveryRepository.findOne({ title })
 
     if(surveryAlreadyExists) {
-      return response.status(400).json({ 
-        message: "Survery already exists"
-      })
+      throw new AppError("Survery already exists")
     }
 
     const survery = surveryRepository.create({

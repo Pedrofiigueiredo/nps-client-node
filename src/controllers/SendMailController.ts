@@ -1,6 +1,7 @@
 import { Request, Response } from 'express'
 import { resolve } from 'path'
 import { getCustomRepository } from 'typeorm'
+import { AppError } from '../errors/AppError'
 import { SurveryRepository } from '../repositories/SurveryRepository'
 import { SurveryUserRepository } from '../repositories/SurveryUserRepository'
 import { UserRepository } from '../repositories/UserRepository'
@@ -25,25 +26,26 @@ class SendMailController {
     const survery = await surveryRepository.findOne({ id: survery_id })
 
     if(!survery) {
-      return response.status(400).json({ error: "Survery not registered" })
+      throw new AppError("Survery not registered")
     }
 
     const npsPath = resolve(__dirname, "..", "views", "emails", "npsMail.hbs")
+
+    const surveryUserAlreadyExists = await surveryUserRepository.findOne({
+      where: { user_id: user.id, value: null },
+      relations: ["user", "survery"]
+    })
 
     const variables = {
       name: user.name,
       title: survery.title,
       description: survery.description,
-      user_id: user.id,
+      id: "",
       link: process.env.URL_MAIL
     }
 
-    const surveryUserAlreadyExists = await surveryUserRepository.findOne({
-      where: [{user_id: user.id}, {value: null}],
-      relations: ["user", "survery"]
-    })
-
     if(surveryUserAlreadyExists) {
+      variables.id = surveryUserAlreadyExists.id
       await SendMailService.sendMail(email, survery.title, variables, npsPath)
       return response.json(surveryUserAlreadyExists)
     }
@@ -56,9 +58,11 @@ class SendMailController {
 
     await surveryUserRepository.save(surveryUser)
 
+    variables.id = surveryUser.id
+
     await SendMailService.sendMail(email, survery.title, variables, npsPath)
 
-    return response.status(201).json({ message: "SurveryUser created" })
+    return response.status(201).json({ surveryUser })
   }
 }
 
